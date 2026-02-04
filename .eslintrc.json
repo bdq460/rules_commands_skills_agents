@@ -1,0 +1,65 @@
+{
+    "root": true,
+    "env": {
+        "node": true,
+        "es2021": true,
+        "jest": true
+    },
+    "extends": [
+        "eslint:recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "ecmaVersion": 2021,
+        "sourceType": "module"
+    },
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "ignorePatterns": [
+        "dist/**",
+        "node_modules/**",
+        "coverage/**",
+        "**/*.js",
+        "**/*.d.ts"
+    ],
+    "rules": {
+        // TypeScript 特定规则
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unused-vars": [
+            "warn",
+            {
+                "argsIgnorePattern": "^_",
+                "varsIgnorePattern": "^_"
+            }
+        ],
+        // 代码质量规则
+        "no-console": "off",
+        "no-debugger": "warn",
+        "no-var": "error",
+        "prefer-const": "warn",
+        // 最佳实践规则
+        "eqeqeq": [
+            "warn",
+            "always"
+        ],
+        "no-eval": "error",
+        "no-unused-vars": "off"
+    },
+    "overrides": [
+        {
+            "files": [
+                "test/**/*.ts",
+                "**/*.test.ts",
+                "**/*.spec.ts"
+            ],
+            "env": {
+                "jest": true
+            },
+            "rules": {
+                "@typescript-eslint/no-explicit-any": "off",
+                "no-console": "off"
+            }
+        }
+    ]
+}

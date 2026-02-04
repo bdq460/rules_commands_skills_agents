@@ -1,0 +1,616 @@
+---
+description: 生成的 Markdown 文件必须遵循 markdownlint 规范，避免 MD024（重复标题）和 MD040（代码块未指定语言）错误。
+alwaysApply: true
+enabled: true
+updatedAt: 2026-01-31T13:35:21.914Z
+provider:
+---
+
+# Markdown 文件生成规则
+
+## 规则目的
+
+确保所有生成的 Markdown 文件符合 markdownlint 规范，特别是避免 MD024 错误（重复标题）和 MD040 错误（未指定代码块语言）。
+
+## 适用范围
+
+此规则适用于：
+- 使用 `write_to_file` 工具生成任何新的 `.md` 文件
+- 通过代码生成 Markdown 内容
+- 编写 SKILL.md、README.md 等文档
+
+## 核心规则
+
+### 规则 1: 禁止重复标题（MD024）
+
+**问题**: MD024 错误表示文档中存在多个内容相同的标题。
+
+**禁止的示例**:
+
+```markdown
+## 概述
+这是概述内容...
+
+## 概述
+这是另一个概述...
+```
+
+**正确的做法**:
+
+```markdown
+## 概述
+这是概述内容...
+
+## 概述详情
+这是另一个概述...
+```
+
+**解决方案**:
+
+1. **使用限定词区分**
+   ```markdown
+   ## 功能
+   ## 功能说明
+   ## 功能实现
+   ```
+
+2. **使用不同层级**
+   ```markdown
+   ## 概述
+   ### 详细说明
+   ```
+
+3. **使用编号**
+   ```markdown
+   ## 第一步
+   ## 第二步
+   ```
+
+4. **使用上下文词**
+   ```markdown
+   ## 问题
+   ## 解决方案
+   ## 预期结果
+   ```
+
+**检查清单**:
+
+在生成 Markdown 前检查：
+- [ ] 所有标题内容是否唯一？
+- [ ] 是否有多个相同的 `## 标题`？
+- [ ] 每个标题是否清晰表达其下内容的范围？
+
+---
+
+### 规则 2: 代码块必须指定语言（MD040）
+
+**问题**: MD040 错误表示代码块未指定语言类型。
+
+**禁止的示例**:
+
+```markdown
+```
+const x = 1;
+console.log(x);
+```
+
+```
+这是一个文本块
+```
+```
+
+**正确的做法**:
+
+```markdown
+```typescript
+const x = 1;
+console.log(x);
+```
+
+```text
+这是一个文本块
+```
+
+```bash
+npm install
+npm test
+```
+```
+
+**语言选择指南**:
+
+| 内容类型 | 推荐语言标记 | 示例 |
+|---------|------------|------|
+| TypeScript 代码 | `typescript` 或 `ts` | `\`\`\`typescript` |
+| JavaScript 代码 | `javascript` 或 `js` | `\`\`\`javascript` |
+| Shell 脚本 | `bash` 或 `sh` | `\`\`\`bash` |
+| Python 代码 | `python` 或 `py` | `\`\`\`python` |
+| JSON 数据 | `json` | `\`\`\`json` |
+| YAML 配置 | `yaml` 或 `yml` | `\`\`\`yaml` |
+| Markdown 示例 | `markdown` 或 `md` | `\`\`\`markdown` |
+| 目录结构 | `tree` | `\`\`\`tree` |
+| 普通文本 | `text` | `\`\`\`text` |
+| 差异对比 | `diff` | `\`\`\`diff` |
+| Mermaid 图表 | `mermaid` | `\`\`\`mermaid` |
+| **无法确定的语言** | **`text`** | `\`\`\`text` |
+
+**规则**:
+
+1. **所有代码块必须指定语言类型**
+   - 不允许使用 ` ``` ` 四个反引号不指定语言
+   - 不确定时使用 `text`
+
+2. **常见编程语言**:
+   ```bash
+   TypeScript: typescript, ts
+   JavaScript: javascript, js
+   Python: python, py
+   Go: go, golang
+   Java: java
+   C++: cpp, c++
+   Rust: rust
+   ```
+
+3. **配置文件**:
+   ```bash
+   JSON: json
+   YAML: yaml, yml
+   TOML: toml
+   INI: ini
+   XML: xml
+   ```
+
+4. **脚本和命令**:
+   ```bash
+   Bash: bash, sh
+   PowerShell: powershell, ps1
+   Zsh: zsh
+   ```
+
+5. **文本和描述**:
+   ```bash
+   纯文本: text
+   Markdown: markdown, md
+   ReStructuredText: rst
+   ```
+
+**示例**:
+
+```markdown
+# 正确示例
+
+## 安装步骤
+
+```bash
+npm install --save-dev jest
+```
+
+## 配置文件
+
+```json
+{
+  "name": "my-project",
+  "version": "1.0.0"
+}
+```
+
+## 代码示例
+
+```typescript
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+```
+
+## 日志输出
+
+```text
+Starting server...
+Server running on port 3000
+```
+```
+
+---
+
+## 代码生成 Markdown 的特殊要求
+
+### 1. 模板生成函数
+
+```typescript
+// ❌ 错误：没有指定代码块语言
+function generateMarkdown(title: string, code: string): string {
+  return `# ${title}\n\n\`\`\`\n${code}\n\`\`\``;
+}
+
+// ✅ 正确：指定代码块语言
+function generateMarkdown(title: string, code: string, language: string = 'text'): string {
+  return `# ${title}\n\n\`\`\`${language}\n${code}\n\`\`\``;
+}
+```
+
+### 2. 动态内容插入
+
+```typescript
+// ✅ 确保动态插入的内容符合规范
+function generateReport(
+  title: string,
+  sections: { heading: string; content: string }[]
+): string {
+  // 检查标题重复
+  const headings = sections.map(s => s.heading);
+  if (new Set(headings).size !== headings.length) {
+    throw new Error('Duplicate headings detected');
+  }
+
+  return `# ${title}\n\n${sections.map(
+    s => `## ${s.heading}\n\n${s.content}\n\n`
+  ).join('')}`;
+}
+```
+
+### 3. 代码块生成辅助函数
+
+```typescript
+// ✅ 辅助函数，默认使用 text
+function codeBlock(content: string, language: string = 'text'): string {
+  return `\`\`\`${language}\n${content}\n\`\`\``;
+}
+
+// 使用示例
+const markdown = `
+## 示例
+
+${codeBlock('console.log("Hello");', 'typescript')}
+
+${codeBlock('这是一段说明文本')}
+
+${codeBlock('npm run build', 'bash')}
+`;
+```
+
+---
+
+## 可忽略的规则
+
+以下 markdownlint 规则在特定场景下可以忽略，不对生成内容做强制要求：
+
+### MD013 - 行长度限制 (line-length)
+
+**规则说明**: 限制每行最大字符数（默认 80 字符）
+
+**忽略场景**:
+- 表格内容（表格换行会破坏格式）
+- 长链接或 URL
+- 代码块中的长行
+- 为了保持语义完整性而不断行的段落
+
+**示例**:
+```markdown
+<!-- ✅ 允许：表格行较长 -->
+| 参数 | 类型 | 说明 | 默认值 |
+|------|------|------|--------|
+| configuration | `FormatterConfiguration` | 格式化配置对象，包含缩进、换行等设置 | `{}` |
+
+<!-- ✅ 允许：长链接 -->
+参考文档：[markdownlint 规则文档](https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/Rules.md)
+```
+
+---
+
+### MD033 - 内联 HTML (no-inline-html)
+
+**规则说明**: 禁止在 Markdown 中使用内联 HTML
+
+**忽略场景**:
+- 需要特殊排版效果（如 `<center>`、`<div align="center">`）
+- 使用 HTML 标签实现 Markdown 不支持的功能（如 `<details>`、`<summary>`）
+- 嵌入视频、iframe 等多媒体内容
+- 复杂的表格布局需要 HTML 辅助
+
+**示例**:
+```markdown
+<!-- ✅ 允许：折叠详情 -->
+<details>
+<summary>点击查看详情</summary>
+这里是隐藏的内容...
+</details>
+
+<!-- ✅ 允许：居中显示 -->
+<div align="center">
+  <img src="logo.png" alt="Logo">
+</div>
+```
+
+---
+
+### MD036 - 强调作为标题 (no-emphasis-as-heading)
+
+**规则说明**: 禁止使用粗体或斜体代替标题
+
+**忽略场景**:
+- 文档中的重点提示或注意事项（并非章节标题）
+- 列表项中的强调说明
+- 特殊标注（如 **重要提示**、**注意事项**）
+
+**示例**:
+```markdown
+<!-- ✅ 允许：作为重点提示，而非章节标题 -->
+**重要提示**: 升级前请备份配置文件。
+
+**注意事项**:
+- 确保已安装 Node.js 16+
+- 关闭杀毒软件避免误报
+```
+
+---
+
+### MD060 - 非 ASCII 字符 (non-ascii-characters)
+
+**规则说明**: 限制使用非 ASCII 字符（如中文、表情符号等）
+
+**忽略场景**:
+- 中文文档中的中文内容
+- 使用表情符号增强可读性（如 ✅、❌、📝）
+- 包含非 ASCII 字符的代码示例
+- 人名、地名等非英文专有名词
+
+**示例**:
+```markdown
+<!-- ✅ 允许：中文文档使用中文 -->
+## 快速开始
+
+欢迎使用本工具，以下是简单的使用指南。
+
+<!-- ✅ 允许：表情符号增强可读性 -->
+- ✅ 已完成的功能
+- ❌ 已知问题
+- 📝 待办事项
+```
+
+---
+
+## 验证和检查
+
+### 检查清单
+
+生成 Markdown 文件前，必须检查：
+
+- [ ] **MD024 检查**
+  - [ ] 所有标题内容是否唯一？
+  - [ ] 是否有重复的二级标题（`##`）？
+  - [ ] 是否有重复的三级标题（`###`）？
+  - [ ] 相同层级的标题内容是否各不相同？
+
+- [ ] **MD040 检查**
+  - [ ] 所有代码块是否指定了语言？
+  - [ ] 是否有不带语言的 ` ``` ` 块？
+  - [ ] 不确定语言时是否使用了 `text`？
+
+- [ ] **其他常见规则**
+  - [ ] 首行是否是标题（MD041）？
+  - [ ] 标题层级是否递增（MD001）？
+  - [ ] 标题后是否有空行（MD022）？
+  - [ ] 列表周围是否有空行（MD032）？
+
+### 自动化验证
+
+```bash
+# 使用 markdownlint 检查
+npx markdownlint "**/*.md"
+
+# 自动修复可修复的错误
+npx markdownlint --fix "**/*.md"
+```
+
+### VSCode 插件
+
+推荐安装：
+- **Markdown All in One**: 提供 Markdown 预览和编辑增强
+- **markdownlint**: 实时显示 markdownlint 错误
+
+---
+
+## 常见错误和修复
+
+### 错误 1: 重复的"总结"标题
+
+```markdown
+# 项目文档
+
+## 功能说明
+...
+
+## 总结
+功能已实现。
+
+## 架构设计
+...
+
+## 总结
+架构设计完成。
+```
+
+**修复**:
+
+```markdown
+# 项目文档
+
+## 功能说明
+...
+
+## 功能总结
+功能已实现。
+
+## 架构设计
+...
+
+## 架构总结
+架构设计完成。
+```
+
+---
+
+### 错误 2: 未指定语言的代码块
+
+```markdown
+## 安装
+
+```
+npm install
+```
+
+## 运行
+
+```
+npm start
+```
+```
+
+**修复**:
+
+```markdown
+## 安装
+
+```bash
+npm install
+```
+
+## 运行
+
+```bash
+npm start
+```
+```
+
+---
+
+### 错误 3: 代码块语言错误
+
+```markdown
+## 配置
+
+```conf
+server.port = 8080
+```
+```
+
+**修复**（使用 `text` 作为未知语言的默认值）:
+
+```markdown
+## 配置
+
+```text
+server.port = 8080
+```
+```
+
+---
+
+## 最佳实践
+
+### 1. 文档结构规划
+
+在生成前先规划文档结构：
+
+```markdown
+# 文档标题
+
+## 章节 1
+### 子章节 1.1
+### 子章节 1.2
+
+## 章节 2
+### 子章节 2.1
+### 子章节 2.2
+
+## 总结
+```
+
+确保每个章节标题唯一。
+
+### 2. 使用编号避免重复
+
+```markdown
+## 步骤 1: 准备
+## 步骤 2: 执行
+## 步骤 3: 验证
+```
+
+### 3. 使用限定词
+
+```markdown
+## 问题描述
+## 解决方案
+## 注意事项
+```
+
+### 4. 代码块语言选择
+
+- 优先使用明确的编程语言（如 `typescript`, `bash`）
+- 配置文件使用标准格式（如 `json`, `yaml`）
+- 未知或自定义格式使用 `text`
+
+---
+
+## 示例：正确的 Markdown 生成
+
+```typescript
+function generateProjectReport(project: Project): string {
+  // 标题
+  const title = `# ${project.name} 项目报告\n\n`;
+
+  // 检查章节标题唯一性
+  const sections = [
+    { heading: '项目概述', content: project.description },
+    { heading: '技术栈', content: formatTechStack(project.techStack) },
+    { heading: '架构设计', content: formatArchitecture(project.architecture) },
+    { heading: '实施计划', content: formatPlan(project.plan) },
+    { heading: '风险评估', content: formatRisks(project.risks) },
+    { heading: '项目总结', content: formatSummary(project.summary) },
+  ];
+
+  // 验证标题唯一性
+  const headings = sections.map(s => s.heading);
+  if (new Set(headings).size !== headings.length) {
+    throw new Error('Duplicate headings detected');
+  }
+
+  // 生成内容
+  const content = sections.map(section => {
+    return `## ${section.heading}\n\n${section.content}\n\n`;
+  }).join('');
+
+  return title + content;
+}
+
+// 代码块生成辅助
+function codeBlock(content: string, language: string = 'text'): string {
+  return `\`\`\`${language}\n${content}\n\`\`\``;
+}
+
+function formatTechStack(techStack: string[]): string {
+  const items = techStack.map(t => `- ${t}`).join('\n');
+  return `${items}\n\n`;
+}
+```
+
+---
+
+## 违规处理
+
+如果生成的 Markdown 文件违反此规则：
+
+1. **立即检查**：使用 markdownlint 验证文件
+2. **修复错误**：
+   - MD024: 重命名重复的标题
+   - MD040: 为代码块添加语言标记
+3. **更新生成代码**：修改生成 Markdown 的代码，确保符合规范
+4. **重新验证**：再次运行 markdownlint 确认所有错误已修复
+
+---
+
+## 参考资料
+
+- [markdownlint 规则文档](https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/Rules.md)
+- [CommonMark 规范](https://commonmark.org/)
+- [Markdown 指南](https://www.markdownguide.org/)

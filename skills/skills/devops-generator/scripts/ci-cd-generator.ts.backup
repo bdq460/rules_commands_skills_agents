@@ -1,0 +1,600 @@
+#!/usr/bin/env node
+
+/**
+ * DevOps Generator - CI/CD配置生成脚本
+ *
+ * 用途：生成CI/CD配置文件、Docker配置、Kubernetes配置等
+ * 使用场景：开发完成后配置持续集成和持续部署流程
+ */
+
+export class CICDGenerator {
+    /**
+     * 生成GitHub Actions配置
+     */
+    generateGitHubActions(): string {
+        return `name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18.x'
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: \${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [install]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: \${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run test
+      - run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [install]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: \${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production..."
+          # Add your deployment commands here
+`;
+    }
+
+    /**
+     * 生成GitLab CI配置
+     */
+    generateGitLabCI(): string {
+        return `stages:
+  - install
+  - test
+  - build
+  - deploy
+
+variables:
+  NODE_ENV: test
+
+install:
+  stage: install
+  image: node:18
+  cache:
+    paths:
+      - node_modules/
+  script:
+    - npm ci
+  artifacts:
+    paths:
+      - node_modules/
+
+test:
+  stage: test
+  image: node:18
+  dependencies:
+    - install
+  script:
+    - npm run test
+    - npm run lint
+
+build:
+  stage: build
+  image: node:18
+  dependencies:
+    - install
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+deploy:
+  stage: deploy
+  image: node:18
+  dependencies:
+    - build
+  script:
+    - echo "Deploying to production..."
+    # Add your deployment commands here
+  only:
+    - main
+`;
+    }
+
+    /**
+     * 生成Jenkins Pipeline配置
+     */
+    generateJenkinsPipeline(): string {
+        return `pipeline {
+  agent any
+
+  environment {
+    NODE_VERSION = '18.x'
+  }
+
+  stages {
+    stage('Install') {
+      steps {
+        sh 'npm ci'
+      }
+    }
+
+    stage('Test') {
+      steps {
+        sh 'npm run test'
+        sh 'npm run lint'
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'npm run build'
+        archiveArtifacts artifacts: 'dist/**', fingerprint: true
+      }
+    }
+
+    stage('Deploy') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sh 'echo "Deploying to production..."'
+        # Add your deployment commands here
+      }
+    }
+  }
+}
+
+// Functional generators used by unit tests and scripts consumers
+export interface GitHubActionsOptions {
+  name?: string;
+  on?: string[];
+  jobs?: string[];
+  nodeVersions?: Array<string | number>;
+}
+
+export function generateGitHubActionsConfig(options: GitHubActionsOptions = {}): string {
+  const name = options.name ?? 'CI';
+  const triggers = options.on ?? ['push', 'pull_request'];
+  const jobs = options.jobs ?? ['test'];
+  const nodeVersions = options.nodeVersions?.map(String) ?? ['18'];
+
+  const jobBlocks: string[] = [];
+  for (const job of jobs) {
+    const jobBlock = `${job}:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: ${nodeVersions[0]}
+      - run: echo "${job} step"`;
+    jobBlocks.push(jobBlock);
+  }
+
+  const jobSection = jobBlocks.join('\n\n');
+
+  let matrixSection = '';
+  if (nodeVersions.length > 1) {
+    matrixSection = `    strategy:
+      matrix:
+        node-version: [${nodeVersions.join(', ')}]`;
+  }
+
+  let triggerString: string;
+  if (triggers.length === 1) {
+    triggerString = triggers[0];
+  } else {
+    triggerString = '\n  ' + triggers.join('\n  ');
+  }
+
+  const indentedJobSection = jobSection.split('\n').map((line) => '  ' + line).join('\n');
+
+  let result = 'name: ' + name + '\n';
+  result += 'on: ' + triggerString + '\n';
+  result += 'jobs:\n';
+  result += indentedJobSection + '\n';
+  if (matrixSection) {
+    result += '  ' + matrixSection;
+  }
+
+  return result;
+}
+
+export interface GitLabCIOptions {
+  stages?: string[];
+  artifacts?: { paths?: string[]; expire_in?: string };
+}
+
+export function generateGitLabCIConfig(options: GitLabCIOptions = {}): string {
+  const stages = options.stages ?? ['build', 'test', 'deploy'];
+  const artifacts = options.artifacts;
+
+  const stageSections = stages
+    .map((stage) => {
+      return `${stage}:
+  stage: ${stage}
+  script:
+    - echo "${stage} stage"`;
+    })
+    .join('\n\n');
+
+  const artifactSection = artifacts
+    ? `artifacts:
+  paths:${artifacts.paths ? `\n    - ${artifacts.paths.join('\n    - ')}` : ''}
+  expire_in: ${artifacts.expire_in ?? '1 week'}\n`
+    : '';
+
+  return `stages:
+  - ${stages.join('\n  - ')}
+\n${stageSections}
+\n${artifactSection}`;
+}
+
+export interface JenkinsOptions {
+  stages?: string[];
+  post?: {
+    always?: string[];
+    success?: string[];
+    failure?: string[];
+  };
+}
+
+export function generateJenkinsfile(options: JenkinsOptions = {}): string {
+  const stages = options.stages ?? ['Build', 'Test', 'Deploy'];
+  const post = options.post;
+
+  const stageBlocks = stages
+    .map((stage) => {
+      return `    stage('${stage}') {
+      steps {
+        echo '${stage} stage'
+      }
+    }`;
+    })
+    .join('\n\n');
+
+  const postBlock = post
+    ? `post {
+    ${post.always ? `always { ${post.always.join('; ')} }` : ''}
+    ${post.success ? `success { ${post.success.join('; ')} }` : ''}
+    ${post.failure ? `failure { ${post.failure.join('; ')} }` : ''}
+  }`
+    : '';
+
+  return `pipeline {
+  agent any
+  stages {
+${stageBlocks}
+  }
+  ${postBlock}
+}`;
+}
+
+export interface DockerfileOptions {
+  baseImage?: string;
+  workDir?: string;
+  installCommand?: string;
+  port?: number;
+  startCommand?: string;
+  multiStage?: boolean;
+  buildStage?: { image?: string; command?: string };
+  runtimeStage?: { image?: string; command?: string };
+}
+
+export function generateDockerfile(options: DockerfileOptions = {}): string {
+  const baseImage = options.baseImage ?? 'node:18-alpine';
+  const workDir = options.workDir ?? '/app';
+  const installCommand = options.installCommand ?? 'npm ci';
+  const port = options.port ?? 3000;
+  const startCommand = options.startCommand ?? 'npm start';
+
+  if (options.multiStage) {
+    const buildImage = options.buildStage?.image ?? baseImage;
+    const buildCmd = options.buildStage?.command ?? 'npm run build';
+    const runtimeImage = options.runtimeStage?.image ?? 'node:18-alpine';
+    const runtimeCmd = options.runtimeStage?.command ?? startCommand;
+
+    return `FROM ${buildImage} AS build
+WORKDIR ${workDir}
+COPY package*.json ./
+RUN ${installCommand}
+COPY . .
+RUN ${buildCmd}
+
+FROM ${runtimeImage} AS runtime
+WORKDIR ${workDir}
+COPY --from=build ${workDir}/dist ./dist
+EXPOSE ${port}
+CMD ["${runtimeCmd.split(' ')[0]}", "${runtimeCmd.split(' ').slice(1).join(' ')}"]`;
+  }
+
+  return `FROM ${baseImage}
+WORKDIR ${workDir}
+COPY package*.json ./
+RUN ${installCommand}
+COPY . .
+EXPOSE ${port}
+  CMD ["${startCommand.split(' ')[0]}", "${startCommand.split(' ').slice(1).join(' ')}"]`;
+}
+
+    /**
+     * 生成docker-compose.yml
+     */
+    generateDockerCompose(): string {
+        return `version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+`;
+    }
+
+    /**
+     * 生成Kubernetes Deployment
+     */
+    generateK8sDeployment(appName: string, imageName: string, replicas: number = 3): string {
+        return `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${appName}
+spec:
+  replicas: ${replicas}
+  selector:
+    matchLabels:
+      app: ${appName}
+  template:
+    metadata:
+      labels:
+        app: ${appName}
+    spec:
+      containers:
+      - name: ${appName}
+        image: ${imageName}
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+`;
+    }
+
+    /**
+     * 生成Kubernetes Service
+     */
+    generateK8sService(appName: string, port: number = 3000): string {
+        return `apiVersion: v1
+kind: Service
+metadata:
+  name: ${appName}
+spec:
+  type: ClusterIP
+  selector:
+    app: ${appName}
+  ports:
+  - port: ${port}
+    targetPort: 3000
+    protocol: TCP
+`;
+    }
+
+    /**
+     * 生成Kubernetes Ingress
+     */
+    generateK8sIngress(appName: string, host: string, serviceName: string, servicePort: number): string {
+        return `apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${appName}-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - ${host}
+    secretName: ${appName}-tls
+  rules:
+  - host: ${host}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ${serviceName}
+            port:
+              number: ${servicePort}
+`;
+    }
+
+    /**
+     * 生成完整的Kubernetes配置
+     */
+    generateK8sManifest(appName: string, imageName: string, host: string): string {
+        const deployment = this.generateK8sDeployment(appName, imageName);
+        const service = this.generateK8sService(appName);
+        const ingress = this.generateK8sIngress(appName, host, appName, 3000);
+
+        return `${deployment}
+---
+${service}
+---
+${ingress}
+`;
+    }
+
+    /**
+     * 生成Nginx配置
+     */
+    generateNginxConfig(upstreamName: string, port: number = 3000): string {
+        return `events {
+    worker_connections 1024;
+}
+
+http {
+    upstream ${upstreamName} {
+        least_conn;
+        server app:3000;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        location / {
+            proxy_pass http://${upstreamName};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        location /health {
+            proxy_pass http://${upstreamName}/health;
+            access_log off;
+        }
+    }
+}
+`;
+    }
+
+    /**
+     * 生成部署脚本
+     */
+    generateDeployScript(): string {
+        return `#!/bin/bash
+
+set -e
+
+echo "🚀 Starting deployment..."
+
+# Variables
+IMAGE_NAME="\${1:-myapp}"
+TAG="\${2:-latest}"
+REGISTRY="\${REGISTRY:-docker.io}"
+
+# Build Docker image
+echo "📦 Building Docker image..."
+docker build -t \${IMAGE_NAME}:\${TAG} .
+
+# Tag and push to registry
+echo "📤 Pushing image to registry..."
+docker tag \${IMAGE_NAME}:\${TAG} \${REGISTRY}/\${IMAGE_NAME}:\${TAG}
+docker push \${REGISTRY}/\${IMAGE_NAME}:\${TAG}
+
+# Apply Kubernetes manifests
+echo "🔧 Applying Kubernetes manifests..."
+kubectl apply -f k8s/
+
+# Wait for rollout
+echo "⏳ Waiting for rollout..."
+kubectl rollout status deployment/\${IMAGE_NAME}
+
+echo "✅ Deployment complete!"
+`;
+    }
+}
+
+// CLI使用示例
+if (require.main === module) {
+    const generator = new CICDGenerator();
+
+    console.log('=== GitHub Actions ===');
+    console.log(generator.generateGitHubActions());
+
+    console.log('\n=== GitLab CI ===');
+    console.log(generator.generateGitLabCI());
+
+    console.log('\n=== Dockerfile ===');
+    console.log(generator.generateDockerfile());
+
+    console.log('\n=== Kubernetes Manifest ===');
+    console.log(generator.generateK8sManifest('myapp', 'myapp:v1.0.0', 'app.example.com'));
+}

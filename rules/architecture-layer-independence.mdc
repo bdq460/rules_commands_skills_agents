@@ -1,0 +1,149 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-01-31T11:58:48.736Z
+provider: 
+---
+
+# 架构分层独立性规则
+
+## 规则概述
+
+本规则定义了项目中各层级的依赖关系约束，确保架构的清晰性和可维护性。
+
+## 核心原则
+
+### 1. Utils 层完全独立
+
+**`src/utils/` 目录是最底层的基础设施，禁止依赖项目中的任何其他模块。**
+
+✅ **允许：**
+- Node.js 内置模块（`fs`, `path`, `child_process` 等）
+- 第三方 npm 包
+- 同目录下的其他工具模块
+
+❌ **禁止：**
+- `src/domain/` 中的任何模块
+- `src/application/` 中的任何模块
+- `src/entrypoints/` 中的任何模块
+- `src/config/` 中的任何模块（特殊情况除外）
+- `src/shared/` 中的任何模块
+
+### 2. 依赖方向
+
+正确的依赖方向应该是：
+
+```
+entrypoints (外层) → application (中层) → domain (内层) → utils (基础设施)
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  entrypoints/          # VSCode API 接入层                  │
+│  - 可直接使用所有下层模块                                   │
+├─────────────────────────────────────────────────────────────┤
+│  application/          # 应用层/用例层                      │
+│  - 可依赖 domain, utils                                     │
+│  - 禁止依赖 entrypoints                                     │
+├─────────────────────────────────────────────────────────────┤
+│  domain/               # 领域层                             │
+│  - 可依赖 utils                                             │
+│  - 禁止依赖 application, entrypoints                        │
+├─────────────────────────────────────────────────────────────┤
+│  utils/                # 基础设施/工具层                    │
+│  - 完全独立，禁止依赖任何上层模块                           │
+│  - 只能使用 Node.js 内置和第三方包                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 3. Utils 层目录结构
+
+```
+src/utils/
+├── executor/           # 命令执行器
+│   ├── types.ts       # 基础类型定义（CancellationToken, Disposable 等）
+│   ├── executor.ts    # 命令执行实现
+│   └── index.ts
+├── di/                # 依赖注入容器
+├── log.ts             # 日志工具
+├── debounce.ts        # 防抖工具
+└── index.ts
+```
+
+## 类型共享策略
+
+当多个层级需要共享类型时：
+
+### 基础类型（如 CancellationToken, Disposable）
+
+**定义位置：** `src/utils/executor/types.ts`
+
+**使用方式：**
+```typescript
+// domain/types.ts - 重新导出
+export type { CancellationToken, Disposable } from "../utils/executor/types";
+
+// 其他层级直接导入
+import { CancellationToken } from "../utils/executor/types";
+```
+
+### 领域类型（如 Document, Diagnostic）
+
+**定义位置：** `src/domain/types.ts`
+
+**使用方式：**
+```typescript
+// application 层导入
+import { Document, Diagnostic } from "../../domain/types";
+```
+
+## 违规示例
+
+❌ **错误：**
+```typescript
+// src/utils/executor/types.ts
+import { SomeType } from "../domain/types";  // ❌ 禁止！utils 不能依赖 domain
+```
+
+❌ **错误：**
+```typescript
+// src/utils/some-tool.ts
+import { PackageInfo } from "../config/package-info";  // ❌ 禁止！
+```
+
+✅ **正确：**
+```typescript
+// src/utils/executor/types.ts
+export interface CancellationToken {
+    readonly isCancellationRequested: boolean;
+    onCancellationRequested(callback: () => void): Disposable | void;
+}
+```
+
+✅ **正确：**
+```typescript
+// src/domain/types.ts
+export type { CancellationToken, Disposable } from "../utils/executor/types";
+```
+
+## 检查清单
+
+在修改代码前，检查：
+
+- [ ] `src/utils/` 中的文件是否导入了上层模块？
+- [ ] 是否有循环依赖？
+- [ ] 类型定义是否放在正确的层级？
+- [ ] 新添加的工具函数是否完全独立？
+
+## 例外情况
+
+以下情况可以暂时例外（但应尽量避免）：
+
+1. **配置类型**：如果 utils 需要配置信息，应通过参数传入，而不是直接导入
+2. **日志接口**：可以定义简单的日志接口，由上层注入实现
+
+## 相关规则
+
+- 文件名使用 kebab-case（如 `package-info.ts`）
+- Clean Architecture 分层规范

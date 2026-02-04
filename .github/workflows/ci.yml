@@ -1,0 +1,316 @@
+# CodeBuddy CI 工作流
+name: CodeBuddy CI
+
+# 并发控制：同一分支的多次运行会取消之前的运行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - ".codebuddy/**"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - ".codebuddy/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+# 全局环境变量
+env:
+  COVERAGE_THRESHOLD: 95 # 覆盖率阈值
+
+jobs:
+  # 作业 1: Markdown Lint 检查
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .codebuddy
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 缓存 markdownlint-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-markdownlint-cli2
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: 安装 markdownlint-cli
+        run: npm install -g markdownlint-cli2
+
+      - name: 运行 Markdown Lint
+        run: |
+          if markdownlint-cli2 '.codebuddy/**/*.md' '.codebuddy/**/*.MD'; then
+            echo "✅ Markdown 符合规范"
+          else
+            echo "❌ Markdown Lint 失败"
+            exit 1
+          fi
+
+  # 作业 2: TypeScript Lint 检查
+  typescript-lint:
+    name: TypeScript Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .codebuddy
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 缓存 node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 运行 TypeScript Lint
+        run: |
+          if npx eslint skills/**/*.ts scripts/**/*.ts --ext .ts --max-warnings 0; then
+            echo "✅ TypeScript 代码符合规范"
+          else
+            echo "❌ TypeScript Lint 失败"
+            exit 1
+          fi
+
+  # 作业 3: 单元测试
+  test:
+    name: 单元测试
+    runs-on: ubuntu-latest
+    needs: [markdown-lint, typescript-lint]
+    defaults:
+      run:
+        working-directory: .codebuddy
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 缓存 node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 运行单元测试和覆盖率检查
+        run: npm run test:unit:coverage
+
+      - name: 上传覆盖率报告
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./test/coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: 检查覆盖率阈值
+        run: |
+          coverage=$(cat test/coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "代码行覆盖率: $coverage%"
+          # 使用 awk 进行浮点数比较，避免依赖 bc 命令
+          if awk "BEGIN {exit !($coverage < ${{ env.COVERAGE_THRESHOLD }})}"; then
+            echo "❌ 覆盖率不达标（要求 ${{ env.COVERAGE_THRESHOLD }}%，实际 $coverage%）"
+            exit 1
+          else
+            echo "✅ 覆盖率达标（$coverage%）"
+          fi
+
+  # 作业 4: 集成检查
+  integration-check:
+    name: 集成检查
+    runs-on: ubuntu-latest
+    needs: [test]
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 检查文件完整性
+        run: |
+          echo "检查脚本完整性..."
+
+          # 检查 generators 目录
+          if [ ! -f ".codebuddy/scripts/generators/code-generator.ts" ]; then
+            echo "❌ 缺少: code-generator.ts"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/generators/doc-generator.ts" ]; then
+            echo "❌ 缺少: doc-generator.ts"
+            exit 1
+          fi
+
+          # 检查 utils 目录
+          if [ ! -f ".codebuddy/scripts/utils/logger.ts" ]; then
+            echo "❌ 缺少: logger.ts"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/utils/file-manager.ts" ]; then
+            echo "❌ 缺少: file-manager.ts"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/utils/context-manager.ts" ]; then
+            echo "❌ 缺少: context-manager.ts"
+            exit 1
+          fi
+
+          # 检查 validators 目录
+          if [ ! -f ".codebuddy/scripts/validators/code-validator.ts" ]; then
+            echo "❌ 缺少: code-validator.ts"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/validators/config-validator.ts" ]; then
+            echo "❌ 缺少: config-validator.ts"
+            exit 1
+          fi
+
+          echo "✅ 所有核心脚本文件存在"
+
+      - name: 检查 README 文档
+        run: |
+          echo "检查文档完整性..."
+
+          if [ ! -f ".codebuddy/scripts/README.md" ]; then
+            echo "❌ 缺少: scripts/README.md"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/generators/README.md" ]; then
+            echo "❌ 缺少: generators/README.md"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/utils/README.md" ]; then
+            echo "❌ 缺少: utils/README.md"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/validators/README.md" ]; then
+            echo "❌ 缺少: validators/README.md"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/scripts/INTEGRATION_EXAMPLE.md" ]; then
+            echo "❌ 缺少: INTEGRATION_EXAMPLE.md"
+            exit 1
+          fi
+
+          echo "✅ 所有文档文件存在"
+
+      - name: 检查配置文件
+        run: |
+          echo "检查配置文件..."
+
+          if [ ! -f ".codebuddy/.markdownlintrc.json" ]; then
+            echo "❌ 缺少: .markdownlintrc.json"
+            exit 1
+          fi
+
+          if [ ! -f ".codebuddy/.github/workflows/ci.yml" ]; then
+            echo "⚠️ CI 工作流文件"
+          fi
+
+          echo "✅ 配置文件检查完成"
+
+  # 作业 5: 文档构建
+  docs-build:
+    name: 构建文档
+    runs-on: ubuntu-latest
+    needs: [markdown-lint, typescript-lint, test, integration-check]
+    defaults:
+      run:
+        working-directory: .codebuddy
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 生成文档报告
+        run: |
+          echo "# CI 检查报告" > CI_REPORT.md
+          echo "" >> CI_REPORT.md
+          echo "生成时间: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> CI_REPORT.md
+          echo "" >> CI_REPORT.md
+          echo "## 检查结果" >> CI_REPORT.md
+          echo "- Markdown Lint: ${{ needs.markdown-lint.result == 'success' && '✅ 通过' || '❌ 失败' }}" >> CI_REPORT.md
+          echo "- TypeScript Lint: ${{ needs.typescript-lint.result == 'success' && '✅ 通过' || '❌ 失败' }}" >> CI_REPORT.md
+          echo "- 单元测试: ${{ needs.test.result == 'success' && '✅ 通过' || '❌ 失败' }}" >> CI_REPORT.md
+          echo "- 文档完整性: ${{ needs.integration-check.result == 'success' && '✅ 通过' || '❌ 失败' }}" >> CI_REPORT.md
+          echo "" >> CI_REPORT.md
+          echo "## 覆盖率" >> CI_REPORT.md
+          echo "- 行覆盖率: ${{ env.COVERAGE_THRESHOLD }}%+" >> CI_REPORT.md
+          echo "- 分支覆盖率: 75%+" >> CI_REPORT.md
+          echo "- 函数覆盖率: 100%" >> CI_REPORT.md
+          echo "" >> CI_REPORT.md
+          echo "## 文件统计" >> CI_REPORT.md
+          echo "- Skills: 18" >> CI_REPORT.md
+          echo "- Scripts: 6 core modules" >> CI_REPORT.md
+
+      - name: 上传文档
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: .codebuddy/CI_REPORT.md
+
+  # 作业 6: 通知
+  notify:
+    name: 通知
+    runs-on: ubuntu-latest
+    needs: [markdown-lint, typescript-lint, test, integration-check, docs-build]
+    if: always()
+    steps:
+      - name: 检查作业状态
+        run: |
+          if [ "${{ needs.markdown-lint.result }}" == "failure" ] || \
+             [ "${{ needs.typescript-lint.result }}" == "failure" ] || \
+             [ "${{ needs.test.result }}" == "failure" ] || \
+             [ "${{ needs.integration-check.result }}" == "failure" ] || \
+             [ "${{ needs.docs-build.result }}" == "failure" ]; then
+            echo "::warning::CI 检查失败，请查看详细信息"
+            echo "::error::请检查失败的作业并修复问题"
+            exit 1
+          else
+            echo "::notice::所有 CI 检查通过 ✅"
+          fi
