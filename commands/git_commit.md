@@ -17,7 +17,7 @@
 ### 自动化要求
 
 - **自动生成标记**：AI 生成的 Commit Message 必须添加 `[AI Generated]` 标记
-- **简洁原则**：自动生成的中文描述不超过 150 字，主体部分不超过 50 字符
+- **简洁原则**：自动生成的中文描述不超过 300 字，主体部分不超过 70 字符
 - **预览展示**：在执行提交前，必须展示完整的 Commit Message 预览
 
 ### 交互流程
@@ -50,7 +50,7 @@ footer:
 
 - `type`: 提交类型（必需）
 - `scope`: 影响范围（可选）
-- `subject`: 简短描述（必需，50 字符内，中文在前）
+- `subject`: 简短描述（必需，70 字符内，中文在前）
 - `body`: 详细描述（可选，中文一段 + 英文一段）
 - `footer`: 破坏性变更说明（可选）
 
@@ -70,7 +70,7 @@ footer:
 
 ### Subject（主题）规范
 
-- 简短描述（50 字符内）
+- 简短描述（70 字符内）
 - 首字母小写（英文）
 - 不以句号结尾
 - 使用祈使语气（英文）
@@ -464,8 +464,8 @@ Closes #123
    - 标记独立成行，与正文之间空一行
 
 2. **简洁性要求**
-   - Subject 部分不超过 50 字符（中文）
-   - Body 部分中文描述不超过 150 字
+   - Subject 部分不超过 70 字符（中文）
+   - Body 部分中文描述不超过 300 字
    - 英文描述对应翻译，保持简洁
 
 3. **完整性要求**
@@ -752,7 +752,7 @@ git commit
 #!/bin/bash
 # 检查 commit message 格式
 
-commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore|revert)(\(.+\))?: .{1,50}'
+commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore|revert)(\(.+\))?: .{1,70}'
 
 if ! grep -qE "$commit_regex" "$1"; then
     echo "Commit message format is invalid!"
@@ -789,7 +789,7 @@ module.exports = {
       'always',
       ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'chore', 'revert']
     ],
-    'subject-max-length': [2, 'always', 50],
+    'subject-max-length': [2, 'always', 70],
   }
 }
 ```

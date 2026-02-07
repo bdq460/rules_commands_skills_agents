@@ -1,0 +1,46 @@
+{
+    "activeProvider": "qwen",
+    "providers": {
+        "openai": {
+            "name": "OpenAI",
+            "baseURL": "https://api.openai.com/v1",
+            "model": "gpt-4",
+            "apiKey": "${OPENAI_API_KEY}"
+        },
+        "glm": {
+            "name": "智谱 GLM",
+            "baseURL": "https://open.bigmodel.cn/api/paas/v4",
+            "model": "glm-4.7",
+            "apiKey": "a1e97f34a5e293ac7a2da9d5df6f3ae1.HPLW2v7jx5Q3oAWD"
+        },
+        "claude": {
+            "name": "Anthropic Claude",
+            "baseURL": "https://api.anthropic.com/v1",
+            "model": "claude-3-opus-20240229",
+            "apiKey": "${ANTHROPIC_API_KEY}"
+        },
+        "qwen": {
+            "name": "通义千问",
+            "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "model": "qwen3-max",
+            "apiKey": "sk-c9aac0a02f934409a8bec5d415217a6c"
+        },
+        "deepseek": {
+            "name": "DeepSeek",
+            "baseURL": "https://api.deepseek.com/v1",
+            "model": "deepseek-chat",
+            "apiKey": "${DEEPSEEK_API_KEY}"
+        },
+        "moonshot": {
+            "name": "Moonshot",
+            "baseURL": "https://api.moonshot.cn/v1",
+            "model": "moonshot-v1-8k",
+            "apiKey": "${MOONSHOT_API_KEY}"
+        }
+    },
+    "settings": {
+        "maxTokens": 4000,
+        "temperature": 0.3,
+        "outputDir": "./research-output"
+    }
+}

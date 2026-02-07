@@ -1,10 +1,8 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
+        "target": "ES2022",
         "module": "ESNext",
-        "lib": [
-            "ES2020"
-        ],
+        "lib": [],
         "outDir": "./dist",
         "rootDir": "./",
         "strict": true,
@@ -31,6 +29,7 @@
     "include": [
         "skills/**/*",
         "scripts/**/*",
+        "agents/**/*"
     ],
     "exclude": [
         "node_modules",
@@ -38,8 +37,10 @@
         "coverage"
     ],
     "ts-node": {
+        "esm": true,
         "compilerOptions": {
-            "module": "ESNext"
+            "module": "ESNext",
+            "moduleResolution": "bundler"
         }
     }
 }
